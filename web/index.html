@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'" />
+    <title>Pathfinding Lab · BFS, A*, Dijkstra, and more on grid maps</title>
+    <meta name="description" content="Watch seven search algorithms explore grid maps, race them on the same map, and benchmark them on hundreds of random maps." />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%23eef2ff'/><path d='M12 52V30h16V12h24' stroke='%23f97316' stroke-width='7' fill='none' stroke-linejoin='round'/><circle cx='12' cy='52' r='6' fill='%2316a34a'/><circle cx='52' cy='12' r='6' fill='%23dc2626'/></svg>" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div>
+        <h1>Pathfinding Lab</h1>
+        <p>Seven search algorithms on grid maps. Draw a map, watch them explore, race them, and measure them.</p>
+      </div>
+      <nav class="tabs" role="tablist" aria-label="Views">
+        <button role="tab" data-tab="explore" aria-selected="true">Explore</button>
+        <button role="tab" data-tab="race" aria-selected="false">Race</button>
+        <button role="tab" data-tab="bench" aria-selected="false">Benchmark</button>
+        <button role="tab" data-tab="hanoi" aria-selected="false">Tower of Hanoi</button>
+      </nav>
+    </header>
+
+    <p class="loading" id="loading" role="status">Loading the Go searches (WebAssembly)…</p>
+
+    <main class="layout" id="layout" hidden>
+      <!-- Settings, shared by the views -->
+      <aside class="settings" id="settings">
+        <section class="group" data-for="explore race">
+          <h2>Map</h2>
+          <label>Kind <select id="kind"></select></label>
+          <div class="pair">
+            <label>Width <input id="width" type="number" min="5" max="200" value="41" /></label>
+            <label>Height <input id="height" type="number" min="5" max="200" value="25" /></label>
+          </div>
+          <label class="slider">Walls or mud <output id="density-out">30%</output>
+            <input id="density" type="range" min="0" max="60" value="30" />
+          </label>
+          <div class="pair">
+            <button type="button" id="new-map">New map</button>
+            <button type="button" id="clear-map" class="quiet">Clear walls</button>
+          </div>
+          <p class="label">Draw on the map</p>
+          <div class="tools" id="tools" role="group" aria-label="Draw tools">
+            <button type="button" data-tool="wall" aria-pressed="true">Wall</button>
+            <button type="button" data-tool="mud" aria-pressed="false">Mud</button>
+            <button type="button" data-tool="erase" aria-pressed="false">Erase</button>
+            <button type="button" data-tool="start" aria-pressed="false">Start</button>
+            <button type="button" data-tool="goal" aria-pressed="false">Goal</button>
+          </div>
+        </section>
+
+        <section class="group" data-for="explore race bench">
+          <h2>Search</h2>
+          <label class="check"><input id="diagonal" type="checkbox" /> Diagonal moves</label>
+          <label>Heuristic <select id="heuristic">
+            <option value="">best fit</option>
+            <option value="manhattan">Manhattan</option>
+            <option value="euclidean">Euclidean</option>
+            <option value="octile">Octile</option>
+            <option value="chebyshev">Chebyshev</option>
+          </select></label>
+          <label class="slider">A* weight <output id="weight-out">2</output>
+            <input id="weight" type="range" min="1" max="10" step="0.5" value="2" />
+          </label>
+          <label class="slider">Mud cost <output id="mud-out">5</output>
+            <input id="mud" type="range" min="1" max="20" value="5" />
+          </label>
+        </section>
+
+        <section class="group" data-for="explore race">
+          <h2>Animation</h2>
+          <label class="slider">Speed <output id="speed-out">8 cells / frame</output>
+            <input id="speed" type="range" min="0" max="10" value="3" />
+          </label>
+        </section>
+      </aside>
+
+      <!-- Explore -->
+      <section class="view" data-view="explore" aria-label="Explore">
+        <div class="chips" id="explore-algos" role="radiogroup" aria-label="Algorithm"></div>
+        <p class="summary" id="explore-summary"></p>
+        <div class="board"><canvas id="explore-canvas"></canvas></div>
+        <div class="controls">
+          <button type="button" id="explore-run" class="main">Run</button>
+          <button type="button" id="explore-instant">Show the result</button>
+          <button type="button" id="explore-clear" class="quiet">Clear the search</button>
+        </div>
+        <dl class="stats" id="explore-stats"></dl>
+        <ul class="legend">
+          <li><i class="c-start"></i>start</li>
+          <li><i class="c-goal"></i>goal</li>
+          <li><i class="c-wall"></i>wall</li>
+          <li><i class="c-mud"></i>mud</li>
+          <li><i class="c-frontier"></i>frontier</li>
+          <li><i class="c-visited"></i>expanded, early to late</li>
+          <li><i class="c-path"></i>path</li>
+        </ul>
+      </section>
+
+      <!-- Race -->
+      <section class="view" data-view="race" aria-label="Race" hidden>
+        <div class="chips" id="race-algos" role="group" aria-label="Algorithms in the race"></div>
+        <div class="controls">
+          <button type="button" id="race-run" class="main">Start the race</button>
+          <span class="hint">All the searches expand cells at the same speed, on the same map.</span>
+        </div>
+        <div class="lanes" id="lanes"></div>
+        <table class="table" id="race-table" hidden>
+          <thead><tr><th>Algorithm</th><th>Cells expanded</th><th>Moves</th><th>Cost</th><th>Time</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </section>
+
+      <!-- Benchmark -->
+      <section class="view" data-view="bench" aria-label="Benchmark" hidden>
+        <div class="bench-form">
+          <label>Maps <select id="bench-kind"></select></label>
+          <label>Width <input id="bench-w" type="number" min="5" max="200" value="80" /></label>
+          <label>Height <input id="bench-h" type="number" min="5" max="200" value="50" /></label>
+          <label>Walls or mud (%) <input id="bench-density" type="number" min="0" max="60" value="30" /></label>
+          <label>Number of maps <input id="bench-maps" type="number" min="1" max="200" value="40" /></label>
+          <button type="button" id="bench-run" class="main">Run the benchmark</button>
+        </div>
+        <p class="hint">Each algorithm searches the same random maps, made from the same seeds. The extra cost compares each path with the cheapest path, found by Dijkstra.</p>
+        <div class="progress" id="bench-progress" hidden><div></div></div>
+        <table class="table" id="bench-table" hidden>
+          <thead><tr><th>Algorithm</th><th>Paths found</th><th>Time</th><th>Cells expanded</th><th>Moves</th><th>Cost</th><th>Extra cost</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="charts" id="bench-charts"></div>
+      </section>
+
+      <!-- Tower of Hanoi -->
+      <section class="view" data-view="hanoi" aria-label="Tower of Hanoi" hidden>
+        <p class="summary">The first version of this project solved the Tower of Hanoi with BFS. Each state of the game says on which rod each disk is. BFS searches the states, and it finds the shortest solution.</p>
+        <div class="controls">
+          <label class="slider inline">Disks <output id="disks-out">4</output>
+            <input id="disks" type="range" min="1" max="10" value="4" />
+          </label>
+          <button type="button" id="hanoi-play" class="main">Play the solution</button>
+          <button type="button" id="hanoi-step">One move</button>
+        </div>
+        <div class="rods" id="rods"></div>
+        <dl class="stats" id="hanoi-stats"></dl>
+      </section>
+    </main>
+
+    <footer>
+      The searches are written in Go and run in your browser with WebAssembly.
+      <a href="https://github.com/rahelmartim/pathfinding-lab" target="_blank" rel="noopener noreferrer">Source on GitHub</a>
+    </footer>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
