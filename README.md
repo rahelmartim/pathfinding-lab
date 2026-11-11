@@ -5,9 +5,9 @@ Seven search algorithms on grid maps, written in Go: BFS, DFS, Dijkstra, A*, wei
 [![CI](https://github.com/rahelmartim/pathfinding-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/rahelmartim/pathfinding-lab/actions/workflows/ci.yml)
 [![Live demo](https://img.shields.io/badge/live%20demo-GitHub%20Pages-4f46e5)](https://rahelmartim.github.io/pathfinding-lab/)
 
-![Seven searches race on the same map](docs/race.png)
+![BFS, Dijkstra, A*, and greedy best-first explore the same map](docs/race.gif)
 
-The searches race at the same speed. To try it, open the [live demo](https://rahelmartim.github.io/pathfinding-lab/).
+Top left is BFS, top right Dijkstra, bottom left A*, and bottom right greedy best-first. A* finds the cheapest path, like Dijkstra, with less than a third of the cells. To try it, open the [live demo](https://rahelmartim.github.io/pathfinding-lab/).
 
 ## The page
 
@@ -21,6 +21,8 @@ The page has four tabs.
 | Tower of Hanoi | BFS over the states of the game, for 1 to 10 disks, with the solution played on three rods. |
 
 ![One A* search on a map with mud](docs/explore.png)
+
+![Seven searches race on the same map](docs/race.png)
 
 ### Settings
 
@@ -103,6 +105,7 @@ hanoi/         # The Tower of Hanoi with BFS
 cmd/pathfind/  # The searches in the terminal
 cmd/hanoi/     # The Tower of Hanoi in the terminal
 cmd/lab-wasm/  # The WebAssembly build for the page
+cmd/searchgif/ # The GIF at the top of this file (make gif)
 web/           # The page, and its browser tests
 docs/          # Screenshots
 ```

@@ -1,7 +1,7 @@
 SITE := site
 PORT ?= 8080
 
-.PHONY: test bench web serve pathfind hanoi clean
+.PHONY: test bench web serve gif pathfind hanoi clean
 
 ## test: vet and run the Go tests with the race detector
 test:
@@ -22,6 +22,10 @@ web:
 ## serve: build the page and serve it on http://localhost:$(PORT)
 serve: web
 	python3 -m http.server $(PORT) --directory $(SITE)
+
+## gif: make docs/race.gif again
+gif:
+	go run ./cmd/searchgif -out docs/race.gif
 
 ## pathfind: every algorithm on a random map, in the terminal
 pathfind:
